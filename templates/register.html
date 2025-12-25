@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <title>Rejestracja - System VRP</title>
+    <style>
+        body { display: flex; justify-content: center; align-items: center; height: 100vh; background-color: #ecf0f1; font-family: sans-serif; }
+        .login-box { background: white; padding: 40px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); width: 300px; text-align: center; }
+        input { width: 90%; padding: 10px; margin: 10px 0; border: 1px solid #ddd; border-radius: 4px; }
+        button { width: 100%; padding: 10px; background-color: #27ae60; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        .links { margin-top: 15px; font-size: 0.9em; }
+        .error { color: red; } .success { color: green; }
+    </style>
+</head>
+<body>
+    <div class="login-box">
+        <h2>Zarejestruj się</h2>
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <p class="{{ category }}">{{ message }}</p>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+        
+        <form method="POST">
+            <input type="text" name="username" placeholder="Login" required>
+            <input type="password" name="password" placeholder="Hasło" required>
+            <button type="submit">Utwórz konto</button>
+        </form>
+        
+        <div class="links">
+            <a href="{{ url_for('login') }}">Masz już konto? Zaloguj się</a>
+        </div>
+    </div>
+</body>
+</html>

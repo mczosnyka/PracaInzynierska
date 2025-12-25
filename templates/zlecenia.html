@@ -1,0 +1,86 @@
+{% extends "layout.html" %}
+
+{% block styles %}
+<style>
+    /* Reuse styles from pojazdy.html for consistency */
+    .table-list { width: 100%; border-collapse: collapse; margin-top: 15px; background: white; }
+    .table-list th { background-color: #2c3e50; color: white; padding: 12px; text-align: left; }
+    .table-list td { padding: 12px; border-bottom: 1px solid #eee; }
+    .table-list tr:hover { background-color: #f1f1f1; }
+
+    .btn-action { padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; text-decoration: none; color: white; font-size: 0.9em; }
+    .btn-details { background-color: #3498db; }
+    .btn-delete { background-color: #c0392b; }
+    .btn-add { padding: 10px 20px; background-color: #2980b9; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
+    
+    .status-new { color: #e67e22; font-weight: bold; }
+    .status-done { color: #27ae60; font-weight: bold; }
+    
+    .alert-box { padding: 15px; margin-bottom: 20px; border-radius: 5px; color: white; }
+    .alert-success { background-color: #27ae60; }
+    .alert-error { background-color: #c0392b; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+        {% for category, message in messages %}
+            <div class="alert-box {{ 'alert-success' if category == 'success' else 'alert-error' }}">
+                {{ message }}
+            </div>
+        {% endfor %}
+    {% endif %}
+{% endwith %}
+
+<div class="card">
+    <h3 style="margin-top: 0;">➕ Nowe Zlecenie</h3>
+    <form action="{{ url_for('dodaj_zlecenie') }}" method="POST" style="display: flex; gap: 10px;">
+        <input type="text" name="nazwa" placeholder="Nazwa zlecenia (np. Dostawa Śląsk 14.11)" required style="flex: 1; padding: 10px; border: 1px solid #ccc; border-radius: 4px;">
+        <button type="submit" class="btn-add">Utwórz</button>
+    </form>
+</div>
+
+<div class="card">
+    <h3 style="margin-top: 0;">📦 Twoje Zlecenia</h3>
+    {% if zlecenia %}
+    <table class="table-list">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Nazwa</th>
+                <th>Data utworzenia</th>
+                <th>Liczba punktów</th>
+                <th>Status</th>
+                <th style="text-align: right;">Akcje</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for z in zlecenia %}
+            <tr>
+                <td>{{ z.id }}</td>
+                <td><b>{{ z.nazwa }}</b></td>
+                <td>{{ z.data_utworzenia.strftime('%Y-%m-%d %H:%M') }}</td>
+                <td>{{ z.punkty|length }}</td>
+                <td>
+                    <span class="{{ 'status-done' if z.status == 'zakonczone' else 'status-new' }}">
+                        {{ z.status.upper() }}
+                    </span>
+                </td>
+                <td style="text-align: right;">
+                    <a href="{{ url_for('szczegoly_zlecenia', id_zlecenia=z.id) }}" class="btn-action btn-details">📍 Szczegóły / Mapa</a>
+                    <form action="{{ url_for('usun_zlecenie', id_zlecenia=z.id) }}" method="POST" style="display:inline;" onsubmit="return confirm('Czy usunąć zlecenie i wszystkie jego punkty?');">
+                        <button type="submit" class="btn-action btn-delete">Usuń</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+        <p style="text-align: center; color: gray; padding: 20px;">Brak aktywnych zleceń.</p>
+    {% endif %}
+</div>
+
+{% endblock %}

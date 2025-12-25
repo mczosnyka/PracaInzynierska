@@ -1,0 +1,14 @@
+{% extends "layout.html" %}
+
+{% block content %}
+    <p>Witaj, <b>{{ session['user'] }}</b>!</p>
+    <p>Wybierz moduł z menu po lewej stronie, aby rozpocząć pracę.</p>
+    
+    <div style="display: flex; gap: 20px; margin-top: 20px;">
+        <div style="background: #e8f6f3; padding: 20px; border-radius: 5px; flex: 1;">
+            <h3>Status Systemu</h3>
+            <p>Połączenie z OSRM: <span style="color: green">Aktywne</span></p>
+            <p>Baza danych: <span style="color: green">Połączono</span></p>
+        </div>
+    </div>
+{% endblock %}

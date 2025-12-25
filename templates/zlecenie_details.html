@@ -1,0 +1,290 @@
+{% extends "layout.html" %}
+
+{% block styles %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+<style>
+    #map { height: 500px; width: 100%; border-radius: 5px; border: 1px solid #ccc; margin-bottom: 20px; cursor: crosshair; }
+    
+    .panel-container { display: flex; gap: 20px; }
+    .left-panel { flex: 2; }
+    .right-panel { flex: 1; }
+
+    .points-table { width: 100%; border-collapse: collapse; font-size: 0.9em; }
+    .points-table th { background-color: #34495e; color: white; padding: 8px; text-align: left; }
+    .points-table td { border-bottom: 1px solid #eee; padding: 8px; }
+    
+    .badge-hub { background-color: #8e44ad; color: white; padding: 3px 8px; border-radius: 10px; font-size: 0.8em; }
+    .badge-delivery { background-color: #2980b9; color: white; padding: 3px 8px; border-radius: 10px; font-size: 0.8em; }
+
+    .alert-box { padding: 10px; margin-bottom: 15px; color: white; border-radius: 4px; }
+    .alert-success { background-color: #27ae60; }
+    .alert-error { background-color: #c0392b; }
+
+    .popup-form input, .popup-form select { width: 100%; margin-bottom: 5px; padding: 5px; box-sizing: border-box; }
+    .popup-form button { width: 100%; background-color: #27ae60; color: white; border: none; padding: 8px; cursor: pointer; }
+
+    .vehicle-row { margin-bottom: 8px; padding: 5px; border-radius: 4px; border: 1px solid transparent; transition: 0.2s; }
+    .vehicle-row:hover { background-color: #f9f9f9; border-color: #eee; }
+    .vehicle-disabled { background-color: #f0f0f0; opacity: 0.6; pointer-events: none; }
+
+    .cursor-pointer { cursor: pointer; }
+    .cursor-locked { cursor: not-allowed; }
+    .flex-center { display: flex; align-items: center; pointer-events: auto; }
+    .route-legend-item { margin-bottom: 5px; border-left: 5px solid #ccc; padding-left: 10px; }
+
+    .seq-icon {
+        background: white;
+        border: 2px solid #333;
+        border-radius: 50%;
+        text-align: center;
+        font-weight: bold;
+        line-height: 24px;
+        font-family: Arial, sans-serif;
+        box-shadow: 1px 1px 3px rgba(0,0,0,0.3);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+
+{% set points_list = [] %}
+{% for p in zlecenie.punkty %}
+    {% set _ = points_list.append(p.to_dict()) %}
+{% endfor %}
+<script id="points-data-json" type="application/json">
+    {{ points_list | tojson | safe }}
+</script>
+
+{% set routes_list = [] %}
+{% if zlecenie.status == 'zakonczone' %}
+    {% for t in zlecenie.wygenerowane_trasy %}
+        {% set _ = routes_list.append({
+            'pojazd_id': t.id_pojazdu,
+            'numer': t.pojazd.numer_rejestracyjny,
+            'dystans': t.dlugosc,
+            'czas': t.czas_przejazdu,
+            'geometry': t.geometria_trasy,
+            'points_order': t.szczegoly_punktow 
+        }) %}
+    {% endfor %}
+{% endif %}
+<script id="routes-data-json" type="application/json">
+    {{ routes_list | tojson | safe }}
+</script>
+
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+        {% for category, message in messages %}
+            <div class="alert-box {{ 'alert-success' if category=='success' else 'alert-error' }}">
+                {{ message }}
+            </div>
+        {% endfor %}
+    {% endif %}
+{% endwith %}
+
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+    <div>
+        <a href="{{ url_for('zlecenia') }}" style="text-decoration: none; color: #7f8c8d;">← Powrót do listy</a>
+        <h2 style="margin: 5px 0;">Zlecenie: {{ zlecenie.nazwa }}</h2>
+        {% if zlecenie.status == 'zakonczone' %}
+            <span style="background: #27ae60; color: white; padding: 4px 8px; border-radius: 4px; font-size: 0.8em; font-weight: bold;">
+                ✅ ZOPTYMALIZOWANE
+            </span>
+        {% else %}
+            <span style="background: #f39c12; color: white; padding: 4px 8px; border-radius: 4px; font-size: 0.8em; font-weight: bold;">
+                🛠️ PLANOWANIE
+            </span>
+        {% endif %}
+    </div>
+    
+    <div>
+        {% if zlecenie.status != 'zakonczone' %}
+            <form action="{{ url_for('optymalizuj_zlecenie', id_zlecenia=zlecenie.id) }}" method="POST" onsubmit="return confirm('To zablokuje edycję. Kontynuować?');">
+                <button type="submit" style="background-color: #2c3e50; color: white; border: none; padding: 12px 24px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 1rem; box-shadow: 0 2px 5px rgba(0,0,0,0.2);">
+                    ⚙️ Optymalizuj Trasę
+                </button>
+            </form>
+        {% else %}
+            <button disabled style="background-color: #95a5a6; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: not-allowed;">
+                🔒 Edycja zablokowana
+            </button>
+        {% endif %}
+    </div>
+</div>
+
+<div class="panel-container">
+    <div class="left-panel card">
+        <h4>Mapa Operacyjna</h4>
+        <div id="map" data-locked="{{ 'true' if zlecenie.status == 'zakonczone' else 'false' }}"></div>
+        
+        {% if zlecenie.status == 'zakonczone' %}
+        <div style="margin-top: 10px; padding: 15px; background: #f8f9fa; border: 1px solid #eee; border-radius: 4px;">
+            <strong style="display:block; margin-bottom:10px;">📊 Podsumowanie Tras:</strong>
+            <ul style="list-style: none; padding: 0; margin: 0;">
+                {% for t in zlecenie.wygenerowane_trasy %}
+                <li class="route-legend-item" data-vehicle-id="{{ t.id_pojazdu }}">
+                    <b>Pojazd {{ t.pojazd.numer_rejestracyjny }}:</b> 
+                    Dystans: {{ t.dlugosc }} km, 
+                    Czas: {{ t.czas_przejazdu }} min
+                </li>
+                {% else %}
+                    <li>Brak wygenerowanych tras.</li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="right-panel card">
+        
+        <h4 style="margin-top: 0;">Lista Punktów ({{ zlecenie.punkty|length }})</h4>
+        {% if zlecenie.punkty %}
+            <table class="points-table">
+                <thead>
+                    <tr>
+                        <th>Nazwa</th>
+                        <th>Typ</th>
+                        <th>Okno</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in zlecenie.punkty %}
+                    <tr>
+                        <td>{{ p.nazwa }}<br><small style="color:gray">{{ p.waga }} kg</small></td>
+                        <td><span class="{{ 'badge-hub' if p.typ == 'HUB' else 'badge-delivery' }}">{{ p.typ }}</span></td>
+                        <td>{{ p.okno_od }}-{{ p.okno_do }}</td>
+                        <td style="text-align: right;">
+                            {% if zlecenie.status != 'zakonczone' %}
+                            <form action="{{ url_for('usun_punkt', id_punktu=p.id) }}" method="POST" style="margin:0;">
+                                <button type="submit" style="background: none; border: none; cursor: pointer; color: red;">🗑️</button>
+                            </form>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <p style="color: gray; font-style: italic;">Brak punktów. Dodaj pierwszy punkt na mapie.</p>
+        {% endif %} 
+        <div style="margin-top: 30px; border-top: 1px solid #eee; padding-top: 20px;">
+            <h4 style="margin-top: 0;">🚛 Dostępna Flota</h4>
+            {% set przypisane_ids = zlecenie.dostepne_pojazdy | map(attribute='id_pojazdu') | list %}
+            
+            <form action="{{ url_for('przypisz_pojazdy', id_zlecenia=zlecenie.id) }}" method="POST">
+                <div style="max-height: 200px; overflow-y: auto; margin-bottom: 15px; border: 1px solid #eee; padding: 10px; border-radius: 4px;">
+                    {% for pojazd in moje_pojazdy %}
+                        {% set jest_w_tym_zleceniu = pojazd.id_pojazdu in przypisane_ids %}
+                        {% set jest_zajety_gdzie_indziej = (not pojazd.dostepnosc) and (not jest_w_tym_zleceniu) %}
+                        {% set edycja_zablokowana = (zlecenie.status == 'zakonczone') %}
+                        
+                        <div class="vehicle-row {{ 'vehicle-disabled' if jest_zajety_gdzie_indziej }}">
+                            <label class="flex-center {{ 'cursor-locked' if edycja_zablokowana else 'cursor-pointer' }}">
+                                <input type="checkbox" name="pojazdy_ids" value="{{ pojazd.id_pojazdu }}" 
+                                    {% if jest_w_tym_zleceniu %}checked{% endif %}
+                                    {% if jest_zajety_gdzie_indziej or edycja_zablokowana %}disabled{% endif %}>
+                                <span style="margin-left: 10px; font-weight: bold;">{{ pojazd.numer_rejestracyjny }}</span>
+                                <span style="margin-left: auto; font-size: 0.8em; color: #7f8c8d;">({{ pojazd.pojemnosc }} kg)</span>
+                            </label>
+                            {% if jest_zajety_gdzie_indziej %}<div style="font-size: 0.75em; color: #c0392b; margin-left: 25px;">⛔ Pojazd zajęty</div>{% endif %}
+                            {% if jest_w_tym_zleceniu %}<div style="font-size: 0.75em; color: #27ae60; margin-left: 25px;">✅ Przypisany</div>{% endif %}
+                        </div>
+                    {% else %}
+                        <p style="color: #c0392b; font-size: 0.9em; text-align: center;">Brak pojazdów w systemie.</p>
+                    {% endfor %}
+                </div>
+                {% if moje_pojazdy and zlecenie.status != 'zakonczone' %}
+                <button type="submit" style="width: 100%; background-color: #f39c12; color: white; border: none; padding: 10px; border-radius: 4px; cursor: pointer; font-weight: bold;">💾 Zapisz Wybór</button>
+                {% endif %}
+            </form>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script>
+    const map = L.map('map').setView([50.0614, 19.9372], 10);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(map);
+
+    function formatTime(minutes) {
+        if (minutes === undefined || minutes === null) return "--:--";
+        const h = Math.floor(minutes / 60);
+        const m = Math.floor(minutes % 60);
+        return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+    }
+
+    // 1. RYSOWANIE PUNKTÓW
+    const rawPoints = document.getElementById('points-data-json').textContent;
+    const pointsData = JSON.parse(rawPoints);
+    const pointsMap = {};
+    
+    pointsData.forEach(p => {
+        pointsMap[p.id] = p;
+        let color = (p.typ === 'HUB') ? 'purple' : '#3498db';
+        const isLocked = document.getElementById('map').dataset.locked === 'true';
+        if (!isLocked || p.typ === 'HUB') {
+            L.circleMarker([p.lat, p.lon], { color: color, fillColor: color, fillOpacity: 0.5, radius: 6 })
+             .addTo(map).bindPopup(`<b>${p.nazwa}</b><br>${p.typ}<br>Okno: ${p.okno_od}-${p.okno_do}<br>Waga: ${p.waga} kg`);
+        }
+    });
+
+    if (pointsData.length > 0) {
+        const group = new L.featureGroup(pointsData.map(p => L.marker([p.lat, p.lon])));
+        map.fitBounds(group.getBounds().pad(0.1));
+    }
+
+    // 2. RYSOWANIE TRAS
+    const rawRoutes = document.getElementById('routes-data-json').textContent;
+    if (rawRoutes && rawRoutes.trim() !== "") {
+        try {
+            const routesData = JSON.parse(rawRoutes);
+            const colors = ['#e74c3c', '#3498db', '#f1c40f', '#2ecc71', '#9b59b6', '#34495e'];
+            
+            routesData.forEach((route, idx) => {
+                const color = colors[idx % colors.length];
+                if (route.geometry) {
+                    L.geoJSON(JSON.parse(route.geometry), { style: { color: color, weight: 5, opacity: 0.8 } }).addTo(map).bindPopup(`<b>Pojazd: ${route.numer}</b>`);
+                    document.querySelectorAll(`.route-legend-item[data-vehicle-id="${route.pojazd_id}"]`).forEach(item => item.style.borderLeftColor = color);
+                }
+                if (route.points_order) {
+                    route.points_order.forEach((pt, sequenceIndex) => {
+                        const realPoint = pointsMap[pt.id_punktu];
+                        if (realPoint) {
+                            let label = (sequenceIndex === 0) ? "S" : (pt.typ === 'END' ? "" : sequenceIndex.toString());
+                            if (!label) return;
+                            
+                            const seqIcon = L.divIcon({
+                                className: 'none',
+                                html: `<div class="seq-icon" style="border-color: ${color}; color: ${color};">${label}</div>`,
+                                iconSize: [24, 24], iconAnchor: [12, 12]
+                            });
+                            L.marker([realPoint.lat, realPoint.lon], { icon: seqIcon, zIndexOffset: 1000 }).addTo(map)
+                             .bindPopup(`<b>${realPoint.nazwa}</b><br>Kolejność: ${sequenceIndex}<br>Przyjazd: ok. ${formatTime(pt.przyjazd_min)}`);
+                        }
+                    });
+                }
+            });
+        } catch(e) { console.error(e); }
+    }
+
+    // 3. KLIKANIE
+    const mapElement = document.getElementById('map');
+    const isOrderLocked = mapElement.dataset.locked === 'true';
+    let tempMarker = null;
+
+    map.on('click', function(e) {
+        if (isOrderLocked) { alert("Zlecenie zakończone. Trasa wygenerowana."); return; }
+        if (tempMarker) map.removeLayer(tempMarker);
+        
+        const lat = e.latlng.lat.toFixed(5);
+        const lon = e.latlng.lng.toFixed(5);
+        const popupContent = `<div class="popup-form"><form action="{{ url_for('dodaj_punkt', id_zlecenia=zlecenie.id) }}" method="POST"><h4 style="margin:0 0 10px 0;">Dodaj Punkt</h4><input type=\"hidden\" name=\"lat\" value=\"${lat}\"><input type=\"hidden\" name=\"lon\" value=\"${lon}\"><input type=\"text\" name=\"nazwa\" required placeholder=\"Nazwa\"><select name=\"typ\"><option value=\"DELIVERY\">Klient</option><option value=\"HUB\">Magazyn</option></select><input type=\"number\" name=\"waga\" value=\"0\" step=\"0.1\"><div style=\"display:flex;gap:5px;\"><input type=\"time\" name=\"okno_od\" value=\"08:00\"><input type=\"time\" name=\"okno_do\" value=\"16:00\"></div><button type=\"submit\">Zapisz</button></form></div>`;
+        tempMarker = L.popup().setLatLng(e.latlng).setContent(popupContent).openOn(map);
+    });
+</script>
+{% endblock %}

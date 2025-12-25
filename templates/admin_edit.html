@@ -1,0 +1,61 @@
+{% extends "layout.html" %}
+
+{% block styles %}
+<style>
+    .edit-form-container { max-width: 500px; margin: 0 auto; }
+    .form-group { margin-bottom: 15px; }
+    .form-label { display: block; margin-bottom: 5px; font-weight: bold; }
+    .form-input { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+    .text-muted { color: gray; font-size: 0.9em; }
+    
+    .msg-error { color: #c0392b; font-weight: bold; }
+    .msg-success { color: #27ae60; font-weight: bold; }
+
+    .btn-save { flex: 1; padding: 12px; background-color: #27ae60; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 1rem; }
+    .btn-cancel { flex: 1; padding: 12px; background-color: #95a5a6; color: white; text-align: center; text-decoration: none; border-radius: 4px; font-size: 1rem; display: inline-block; box-sizing: border-box; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="card edit-form-container">
+    <h2 style="border-bottom: 1px solid #eee; padding-bottom: 10px;">✏️ Edycja użytkownika: {{ user.login }}</h2>
+    
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <p class="{{ 'msg-error' if category == 'error' else 'msg-success' }}">
+                    {{ message }}
+                </p>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <form method="POST">
+        <div class="form-group">
+            <label class="form-label">Login:</label>
+            <input type="text" name="username" value="{{ user.login }}" required class="form-input">
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">Rola:</label>
+            <select name="role" class="form-input">
+                <option value="user" {{ 'selected' if user.rola == 'user' }}>Użytkownik</option>
+                <option value="admin" {{ 'selected' if user.rola == 'admin' }}>Administrator</option>
+            </select>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 25px;">
+            <label class="form-label">Nowe Hasło:</label>
+            <input type="password" name="password" placeholder="(Pozostaw puste, aby nie zmieniać)" class="form-input">
+            <small class="text-muted">Wypełnij tylko jeśli chcesz zresetować hasło użytkownika.</small>
+        </div>
+
+        <div style="display: flex; gap: 10px;">
+            <button type="submit" class="btn-save">💾 Zapisz zmiany</button>
+            <a href="{{ url_for('admin_panel') }}" class="btn-cancel">Anuluj</a>
+        </div>
+    </form>
+</div>
+
+{% endblock %}
