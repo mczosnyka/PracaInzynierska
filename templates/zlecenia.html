@@ -2,7 +2,6 @@
 
 {% block styles %}
 <style>
-    /* Reuse styles from pojazdy.html for consistency */
     .table-list { width: 100%; border-collapse: collapse; margin-top: 15px; background: white; }
     .table-list th { background-color: #2c3e50; color: white; padding: 12px; text-align: left; }
     .table-list td { padding: 12px; border-bottom: 1px solid #eee; }
@@ -16,7 +15,7 @@
     .status-new { color: #e67e22; font-weight: bold; }
     .status-done { color: #27ae60; font-weight: bold; }
     
-    .alert-box { padding: 15px; margin-bottom: 20px; border-radius: 5px; color: white; }
+    .alert-box { padding: 15px; margin-bottom: 20px; border-radius: 5px; color: white; font-weight: bold; }
     .alert-success { background-color: #27ae60; }
     .alert-error { background-color: #c0392b; }
 </style>
@@ -37,7 +36,7 @@
 <div class="card">
     <h3 style="margin-top: 0;">➕ Nowe Zlecenie</h3>
     <form action="{{ url_for('dodaj_zlecenie') }}" method="POST" style="display: flex; gap: 10px;">
-        <input type="text" name="nazwa" placeholder="Nazwa zlecenia (np. Dostawa Śląsk 14.11)" required style="flex: 1; padding: 10px; border: 1px solid #ccc; border-radius: 4px;">
+        <input type="text" name="nazwa" placeholder="Nazwa zlecenia (np. Dostawa Śląsk)" required style="flex: 1; padding: 10px; border: 1px solid #ccc; border-radius: 4px;">
         <button type="submit" class="btn-add">Utwórz</button>
     </form>
 </div>
@@ -50,8 +49,8 @@
             <tr>
                 <th>ID</th>
                 <th>Nazwa</th>
-                <th>Data utworzenia</th>
-                <th>Liczba punktów</th>
+                <th>Data</th>
+                <th>Punkty</th>
                 <th>Status</th>
                 <th style="text-align: right;">Akcje</th>
             </tr>
@@ -63,16 +62,10 @@
                 <td><b>{{ z.nazwa }}</b></td>
                 <td>{{ z.data_utworzenia.strftime('%Y-%m-%d %H:%M') }}</td>
                 <td>{{ z.punkty|length }}</td>
-                <td>
-                    <span class="{{ 'status-done' if z.status == 'zakonczone' else 'status-new' }}">
-                        {{ z.status.upper() }}
-                    </span>
-                </td>
+                <td><span class="{{ 'status-done' if z.status == 'zakonczone' else 'status-new' }}">{{ z.status.upper() }}</span></td>
                 <td style="text-align: right;">
-                    <a href="{{ url_for('szczegoly_zlecenia', id_zlecenia=z.id) }}" class="btn-action btn-details">📍 Szczegóły / Mapa</a>
-                    <form action="{{ url_for('usun_zlecenie', id_zlecenia=z.id) }}" method="POST" style="display:inline;" onsubmit="return confirm('Czy usunąć zlecenie i wszystkie jego punkty?');">
-                        <button type="submit" class="btn-action btn-delete">Usuń</button>
-                    </form>
+                    <a href="{{ url_for('szczegoly_zlecenia', id_zlecenia=z.id) }}" class="btn-action btn-details">📍 Szczegóły</a>
+                    <button type="button" class="btn-action btn-delete" onclick="handleDeleteOrder('{{ z.id }}', '{{ z.nazwa }}')">Usuń</button>
                 </td>
             </tr>
             {% endfor %}
@@ -83,4 +76,15 @@
     {% endif %}
 </div>
 
+<script>
+function handleDeleteOrder(id, name) {
+    if (confirm(`Czy na pewno usunąć zlecenie "${name}" i wszystkie jego punkty?`)) {
+        fetch(`/zlecenia/usun/${id}`, { method: 'DELETE' })
+        .then(response => {
+            if (response.ok) { window.location.reload(); }
+            else { alert("Błąd podczas usuwania zlecenia."); }
+        });
+    }
+}
+</script>
 {% endblock %}

@@ -24,7 +24,6 @@ class Pojazd(db.Model):
     __tablename__ = 'pojazdy'
 
     id_pojazdu = db.Column(db.Integer, primary_key=True)
-    # FIX: unique=True zapobiega duplikatom
     numer_rejestracyjny = db.Column(db.String(20), unique=True, nullable=False)
     pojemnosc = db.Column(db.Float, nullable=False)
     dostepnosc = db.Column(db.Boolean, default=True, nullable=False)
@@ -39,18 +38,14 @@ class Pojazd(db.Model):
         self.id_uzytkownika = id_uzytkownika
         self.dostepnosc = dostepnosc
 
-    # FIX: Bezpieczniejsze pobieranie współrzędnych
     @property
     def lat(self):
-        # Jeśli lokalizacja jest stringiem (przed zapisem do bazy), parsujemy string
         if isinstance(self.lokalizacja, str):
             try:
-                # Format: POINT(lon lat)
                 coords = self.lokalizacja.replace('POINT(', '').replace(')', '').split()
                 return float(coords[1])
             except:
                 return 0.0
-        # Jeśli obiekt z bazy (WKBElement)
         point = to_shape(self.lokalizacja)
         return point.y
 
@@ -76,13 +71,11 @@ class Zlecenie(db.Model):
     
     id = db.Column(db.Integer, primary_key=True)
     nazwa = db.Column(db.String(100), nullable=False)
-    status = db.Column(db.String(20), default='nowe')  # nowe, w_trakcie, zakonczone
+    status = db.Column(db.String(20), default='nowe')  
     data_utworzenia = db.Column(db.DateTime, default=datetime.utcnow)
     
-    # Relacja do użytkownika (właściciela zlecenia)
     id_uzytkownika = db.Column(db.Integer, db.ForeignKey('uzytkownicy.id'), nullable=False)
     
-    # Relacja do punktów (cascade='all, delete-orphan' usunie punkty gdy usuniemy zlecenie)
     punkty = db.relationship('PunktDostawy', backref='zlecenie', lazy=True, cascade='all, delete-orphan')
     dostepne_pojazdy = db.relationship('Pojazd', secondary=zlecenie_pojazdy, lazy='subquery',
         backref=db.backref('przypisane_zlecenia', lazy=True))
@@ -121,7 +114,6 @@ class PunktDostawy(db.Model):
         point = to_shape(self.lokalizacja)
         return point.x
 
-    # --- NOWA METODA DO NAPRAWY BŁĘDÓW JS ---
     def to_dict(self):
         return {
             'id': self.id,
@@ -150,5 +142,4 @@ class Trasa(db.Model):
     
     pojazd = db.relationship('Pojazd', backref='realizowane_trasy')
     
-    # --- POPRAWKA: Dodajemy db.backref z kaskadowym usuwaniem ---
     zlecenie = db.relationship('Zlecenie', backref=db.backref('wygenerowane_trasy', cascade='all, delete-orphan'))

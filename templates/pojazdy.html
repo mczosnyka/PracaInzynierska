@@ -2,18 +2,15 @@
 
 {% block styles %}
 <style>
-    /* Style spójne z admin.html */
     .table-list { width: 100%; border-collapse: collapse; margin-top: 15px; background: white; }
     .table-list th { background-color: #2c3e50; color: white; padding: 12px; text-align: left; }
     .table-list td { padding: 12px; border-bottom: 1px solid #eee; }
     .table-list tr:hover { background-color: #f1f1f1; }
 
-    /* Badge statusu */
     .status-badge { padding: 5px 10px; border-radius: 15px; font-size: 0.85em; font-weight: bold; }
     .status-ok { background-color: #27ae60; color: white; }
     .status-bad { background-color: #95a5a6; color: white; }
 
-    /* Przyciski */
     .btn-action { padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9em; text-decoration: none; display: inline-block; color: white; }
     .btn-edit { background-color: #f39c12; }
     .btn-delete { background-color: #c0392b; }
@@ -24,7 +21,6 @@
     .input-group label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 0.9em; }
     .input-group input { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
 
-    /* NOWE: Style dla alertów (flash messages) */
     .alert-box { padding: 15px; margin-bottom: 20px; border-radius: 5px; color: white; }
     .alert-success { background-color: #27ae60; }
     .alert-error { background-color: #c0392b; }
@@ -67,9 +63,9 @@
             <input type="number" step="any" name="lon" placeholder="19.9366" required>
         </div>
 
-        <div style="width: 100px; padding-bottom: 10px;">
+        <div style="padding-bottom: 10px;">
             <input type="checkbox" name="dostepnosc" id="dostepnosc" checked>
-            <label for="dostepnosc" style="display:inline;">Dostępny</label>
+            <label for="dostepnosc" style="display:inline; font-weight: bold;">Dostępny</label>
         </div>
 
         <button type="submit" class="btn-add">Dodaj Pojazd</button>
@@ -94,21 +90,23 @@
             {% for pojazd in pojazdy %}
             <tr>
                 <td><b>{{ pojazd.numer_rejestracyjny }}</b></td>
-                <td>{{ pojazd.pojemnosc }}</td>
+                <td>{{ pojazd.pojemnosc }} kg</td>
                 <td>{{ pojazd.lat }}, {{ pojazd.lon }}</td>
                 <td>
                     {% if pojazd.dostepnosc %}
                         <span class="status-badge status-ok">Dostępny</span>
                     {% else %}
-                        <span class="status-badge status-bad">Niedostępny</span>
+                        <span class="status-badge status-bad">Zajęty/Niedostępny</span>
                     {% endif %}
                 </td>
                 <td style="text-align: right;">
                     <a href="{{ url_for('edytuj_pojazd', id_pojazdu=pojazd.id_pojazdu) }}" class="btn-action btn-edit">Edytuj</a>
                     
-                    <form action="{{ url_for('usun_pojazd', id_pojazdu=pojazd.id_pojazdu) }}" method="POST" style="display:inline;" onsubmit="return confirm('Czy na pewno usunąć pojazd {{ pojazd.numer_rejestracyjny }}?');">
-                        <button type="submit" class="btn-action btn-delete">Usuń</button>
-                    </form>
+                    <button type="button" 
+                            class="btn-action btn-delete" 
+                            onclick="confirmDelete('{{ pojazd.id_pojazdu }}', '{{ pojazd.numer_rejestracyjny }}')">
+                        Usuń
+                    </button>
                 </td>
             </tr>
             {% endfor %}
@@ -118,5 +116,31 @@
         <p style="color: gray; padding: 20px; text-align: center;">Brak pojazdów w bazie. Dodaj pierwszy pojazd powyżej.</p>
     {% endif %}
 </div>
+
+<script>
+
+function confirmDelete(id, registration) {
+    if (confirm(`Czy na pewno chcesz trwale usunąć pojazd o numerze ${registration}?`)) {
+        
+        fetch(`/pojazdy/usun/${id}`, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => {
+                        if (response.ok) {
+                window.location.reload(); 
+            } else {
+                alert("Wystąpił błąd podczas usuwania pojazdu.");
+            }
+        })
+        .catch(error => {
+            console.error('Błąd Fetch:', error);
+            alert("Błąd połączenia z serwerem.");
+        });
+    }
+}
+</script>
 
 {% endblock %}

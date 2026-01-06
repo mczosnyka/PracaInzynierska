@@ -2,24 +2,19 @@
 
 {% block styles %}
 <style>
-    /* Style specyficzne dla panelu admina */
-    .msg-box { padding: 15px; margin-bottom: 20px; border-radius: 5px; color: white; }
+    .msg-box { padding: 15px; margin-bottom: 20px; border-radius: 5px; color: white; font-weight: bold; }
     .msg-success { background-color: #27ae60; }
     .msg-error { background-color: #c0392b; }
 
     .admin-table { width: 100%; border-collapse: collapse; margin-top: 15px; }
     .admin-table th { background-color: #34495e; color: white; padding: 12px; text-align: left; }
     .admin-table td { padding: 12px; border-bottom: 1px solid #eee; }
-    
-    /* Naprawiony HOVER - teraz działa poprawnie */
     .admin-table tr:hover { background-color: #f1f1f1; }
 
-    /* Badge dla ról */
     .role-badge { padding: 5px 10px; border-radius: 15px; font-size: 0.85em; font-weight: bold; }
     .role-admin { background-color: #f39c12; color: white; }
     .role-user { background-color: #bdc3c7; color: #2c3e50; }
 
-    /* Przyciski */
     .btn-action { padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9em; text-decoration: none; display: inline-block; color: white; }
     .btn-edit { background-color: #3498db; }
     .btn-delete { background-color: #e74c3c; }
@@ -42,17 +37,14 @@
 <div class="card" style="margin-bottom: 30px;">
     <h3 style="margin-top: 0; border-bottom: 1px solid #eee; padding-bottom: 10px;">➕ Dodaj użytkownika</h3>
     <form action="{{ url_for('admin_add_user') }}" method="POST" style="display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap;">
-        
         <div style="flex: 1; min-width: 200px;">
             <label style="display: block; margin-bottom: 5px; font-weight: bold;">Login:</label>
             <input type="text" name="username" required style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
         </div>
-
         <div style="flex: 1; min-width: 200px;">
             <label style="display: block; margin-bottom: 5px; font-weight: bold;">Hasło:</label>
             <input type="password" name="password" required style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
         </div>
-
         <div style="width: 150px;">
             <label style="display: block; margin-bottom: 5px; font-weight: bold;">Rola:</label>
             <select name="role" style="width: 100%; padding: 9px; border: 1px solid #ccc; border-radius: 4px;">
@@ -60,7 +52,6 @@
                 <option value="admin">Administrator</option>
             </select>
         </div>
-
         <button type="submit" class="btn-add">Dodaj</button>
     </form>
 </div>
@@ -87,14 +78,9 @@
                     </span>
                 </td>
                 <td style="text-align: right;">
-                    <a href="{{ url_for('admin_edit_user', user_id=u.id) }}" class="btn-action btn-edit">
-                       ✏️ Edytuj
-                    </a>
-
+                    <a href="{{ url_for('admin_edit_user', user_id=u.id) }}" class="btn-action btn-edit">✏️ Edytuj</a>
                     {% if u.id != current_user.id %}
-                    <form action="{{ url_for('delete_user', user_id=u.id) }}" method="POST" style="display: inline;" onsubmit="return confirm('Czy na pewno chcesz usunąć użytkownika {{ u.login }}?');">
-                        <button type="submit" class="btn-action btn-delete">🗑️ Usuń</button>
-                    </form>
+                        <button type="button" class="btn-action btn-delete" onclick="handleDeleteUser('{{ u.id }}', '{{ u.login }}')">🗑️ Usuń</button>
                     {% else %}
                         <span style="color: #95a5a6; font-size: 0.9em; padding: 6px 12px;">(Ty)</span>
                     {% endif %}
@@ -105,4 +91,16 @@
     </table>
 </div>
 
+<script>
+function handleDeleteUser(id, login) {
+    if (confirm(`Czy na pewno chcesz usunąć użytkownika ${login}?`)) {
+        fetch(`/admin/delete_user/${id}`, { method: 'DELETE' })
+        .then(response => {
+            if (response.ok) { window.location.reload(); }
+            else { alert("Wystąpił błąd podczas usuwania użytkownika."); }
+        })
+        .catch(err => console.error(err));
+    }
+}
+</script>
 {% endblock %}
