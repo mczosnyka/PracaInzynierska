@@ -126,10 +126,38 @@
     map.on('click', function(e) {
         if (document.getElementById('map').dataset.locked === 'true') return;
         const lat = e.latlng.lat.toFixed(5), lon = e.latlng.lng.toFixed(5);
-        const form = `<div class="popup-form"><form action="{{ url_for('dodaj_punkt', id_zlecenia=zlecenie.id) }}" method="POST">
-            <input type="hidden" name="lat" value="${lat}"><input type="hidden" name="lon" value="${lon}">
-            <input type="text" name="nazwa" required placeholder="Nazwa"><select name="typ"><option value="DELIVERY">Klient</option><option value="HUB">Magazyn</option></select>
-            <input type="number" name="waga" value="0"><button type="submit">Dodaj</button></form></div>`;
+const form = `
+<div class="popup-form">
+    <form action="{{ url_for('dodaj_punkt', id_zlecenia=zlecenie.id) }}" method="POST">
+        <input type="hidden" name="lat" value="${lat}">
+        <input type="hidden" name="lon" value="${lon}">
+        
+        <label>Nazwa:</label>
+        <input type="text" name="nazwa" required placeholder="np. Sklep ABC">
+        
+        <label>Typ:</label>
+        <select name="typ">
+            <option value="DELIVERY">Klient</option>
+            <option value="HUB">Magazyn</option>
+        </select>
+        
+        <label>Waga (kg):</label>
+        <input type="number" name="waga" value="0">
+        
+        <div style="display: flex; gap: 5px;">
+            <div>
+                <label>Od:</label>
+                <input type="time" name="okno_od" value="08:00">
+            </div>
+            <div>
+                <label>Do:</label>
+                <input type="time" name="okno_do" value="16:00">
+            </div>
+        </div>
+        
+        <button type="submit" style="margin-top: 10px;">Dodaj Punkt</button>
+    </form>
+</div>`;
         L.popup().setLatLng(e.latlng).setContent(form).openOn(map);
     });
 
